@@ -168,6 +168,12 @@ button { color: inherit; }
 .setup-card li::marker { color: var(--orange); }
 .setup-card code, .setup-card strong { color: #40594a; font-size: 10px; }
 .setup-safe { display: flex; align-items: center; gap: 7px; padding-top: 19px; border-top: 1px solid var(--line); color: #63806d; font-size: 10px; }
+.local-preview-setup { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 12px; margin-top: 24px; padding-top: 19px; border-top: 1px solid var(--line); }
+.local-preview-setup > span { display: grid; gap: 5px; }
+.local-preview-setup > span strong { color: #47594c; font-size: 11px; font-weight: 600; }
+.local-preview-setup > span small, .preview-disclaimer { color: #888b81; font-size: 9px; line-height: 1.6; }
+.local-preview-setup .button { min-height: 37px; padding-inline: 11px; font-size: 9px; white-space: nowrap; }
+.preview-disclaimer { grid-column: 1 / -1; margin: -3px 0 0; }
 .login-card { width: min(100%, 400px); }
 .login-monogram { width: 40px; height: 40px; display: grid; place-items: center; margin-bottom: 22px; border-radius: 50%; background: var(--green); color: white; font-family: var(--serif); font-size: 22px; }
 .login-card form { display: grid; gap: 16px; margin-top: 25px; }
@@ -209,6 +215,11 @@ button { color: inherit; }
 .save-notice { display: inline-flex; align-items: center; gap: 6px; margin-left: auto; color: #547661; font-size: 10px; }
 .save-notice + .topbar-link { margin-left: 14px; }
 .admin-content { width: min(100%, 1070px); margin-inline: auto; padding: 39px 42px 80px; }
+.preview-banner { display: flex; align-items: center; gap: 11px; margin-bottom: 18px; padding: 12px 15px; border: 1px solid #e4d5b6; background: #fbf5e8; color: #7b6848; font-size: 10px; line-height: 1.6; }
+.preview-banner > svg { flex: 0 0 auto; }
+.preview-banner > span { flex: 1; }
+.preview-banner strong { margin-right: 4px; color: #665333; }
+.preview-banner button { flex: 0 0 auto; padding: 6px 8px; border: 1px solid #dfd0b2; background: #fffdf8; color: #695537; font-size: 9px; cursor: pointer; }
 .editor-view { display: grid; gap: 20px; }
 .editor-title { display: flex; align-items: center; justify-content: space-between; margin-bottom: 5px; }
 .editor-title h1, .welcome-banner h1 { margin: 7px 0 5px; font-family: var(--serif); font-size: 31px; font-weight: 400; letter-spacing: -.045em; }
@@ -348,6 +359,9 @@ button { color: inherit; }
   .content-contact a { white-space: nowrap; }
   .setup-back { top: 19px; left: 18px; }
   .setup-card, .login-card { padding: 31px 25px; }
+  .local-preview-setup { grid-template-columns: 1fr; }
+  .local-preview-setup .button { width: 100%; }
+  .preview-disclaimer { grid-column: auto; }
   .setup-card h1, .login-card h1 { font-size: 31px; }
   .admin-layout { display: block; }
   .admin-sidebar { position: relative; width: 100%; height: auto; display: flex; flex-direction: row; align-items: center; gap: 7px; padding: 12px 14px; border-right: 0; border-bottom: 1px solid #e5e3da; }
@@ -361,6 +375,9 @@ button { color: inherit; }
   .admin-topbar > div { font-size: 9px; }
   .topbar-link { font-size: 9px; }
   .admin-content { padding: 24px 14px 50px; }
+  .preview-banner { align-items: flex-start; flex-wrap: wrap; padding: 10px; font-size: 9px; }
+  .preview-banner > span { flex-basis: calc(100% - 32px); }
+  .preview-banner button { margin-left: 27px; }
   .editor-title { align-items: flex-start; gap: 10px; }
   .editor-title h1 { font-size: 25px; }
   .editor-title p { max-width: 200px; }

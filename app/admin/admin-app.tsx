@@ -31,9 +31,11 @@ import {
 import { hasSupabaseConfig, supabase } from "@/lib/supabase";
 
 type Section = "overview" | "pages" | "profile";
+const localPreviewStorageKey = "janak-portfolio-local-preview";
 
 export function AdminApp() {
   const [authenticated, setAuthenticated] = useState(false);
+  const [previewMode, setPreviewMode] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -161,14 +163,18 @@ export function AdminApp() {
   }
 
   async function signOut() {
-    if (!supabase) return;
+    if (!supabase) {
+      setAuthenticated(false);
+      setPreviewMode(false);
+      setNotice("");
+      return;
+    }
     const { error } = await supabase.auth.signOut();
     if (error) setErrorMessage(error.message);
     else setNotice("You’re signed out.");
   }
 
   async function saveContent(next: PortfolioContent) {
-    if (!supabase) return;
     const slugs = next.pages.map((page) => page.slug);
     if (slugs.some((slug) => !slug || slug === "admin")) {
       setErrorMessage("Each page needs a URL slug, and “admin” is reserved.");
@@ -178,6 +184,19 @@ export function AdminApp() {
       setErrorMessage("Each page must have a unique URL slug.");
       return;
     }
+
+    if (!supabase && previewMode) {
+      try {
+        window.localStorage.setItem(localPreviewStorageKey, JSON.stringify(next));
+        setContent(next);
+        setNotice("Saved in this browser only — not published.");
+      } catch (error) {
+        console.error("Unable to save the local portfolio preview:", error);
+        setErrorMessage("Couldn’t save the local preview. Check your browser storage and try again.");
+      }
+      return;
+    }
+    if (!supabase) return;
     setBusy(true);
     setErrorMessage("");
     const { error } = await supabase
@@ -191,6 +210,24 @@ export function AdminApp() {
       window.setTimeout(() => setNotice(""), 4000);
     }
     setBusy(false);
+  }
+
+  function startLocalPreview() {
+    let storageWarning = "";
+    try {
+      const savedContent = window.localStorage.getItem(localPreviewStorageKey);
+      if (savedContent) {
+        const parsed: unknown = JSON.parse(savedContent);
+        setContent(isPortfolioContent(parsed) ? parsed : starterContent);
+      }
+    } catch (error) {
+      console.error("Unable to restore the local portfolio preview:", error);
+      storageWarning = "Couldn’t restore your saved preview. Starting with sample content.";
+      setContent(starterContent);
+    }
+    setErrorMessage(storageWarning);
+    setPreviewMode(true);
+    setAuthenticated(true);
   }
 
   function updateSettings(field: keyof PortfolioContent["settings"], value: string) {
@@ -292,7 +329,7 @@ export function AdminApp() {
     return <div className="admin-loading"><LoaderCircle className="spin" size={20} /> Loading admin…</div>;
   }
 
-  if (!hasSupabaseConfig) {
+  if (!hasSupabaseConfig && !previewMode) {
     return (
       <main className="setup-screen">
         <Link href="/" className="setup-back"><ArrowLeft size={15} /> Return to portfolio</Link>
@@ -308,6 +345,13 @@ export function AdminApp() {
             <li>After registration, remove the two server-only setup keys from Vercel.</li>
           </ol>
           <span className="setup-safe"><Check size={15} /> Admin changes are protected by Supabase row-level security.</span>
+          {process.env.NODE_ENV === "development" && (
+            <div className="local-preview-setup">
+              <span><strong>Explore the CMS</strong><small>Try the content editor with sample data saved only in this browser.</small></span>
+              <button className="button button-dark" onClick={startLocalPreview}>Preview admin <ArrowUpRight size={15} /></button>
+              <small className="preview-disclaimer">Demo only. No login, remote connection, or publishing.</small>
+            </div>
+          )}
         </div>
       </main>
     );
@@ -356,8 +400,8 @@ export function AdminApp() {
         <button className={`sidebar-item ${section === "profile" ? "selected" : ""}`} onClick={() => { setSection("profile"); setSelectedPageId(null); }}><UserRound size={17} /> Profile</button>
         <div className="sidebar-bottom">
           <Link className="sidebar-preview" href="/" target="_blank">View live site <ArrowUpRight size={14} /></Link>
-          <button className="sidebar-item signout" onClick={signOut}><LogOut size={16} /> Sign out</button>
-          <span className="sidebar-user"><span className="user-avatar">{email.charAt(0).toUpperCase()}</span><span>{email}<small>ADMINISTRATOR</small></span><ChevronDown size={14} /></span>
+          <button className="sidebar-item signout" onClick={signOut}><LogOut size={16} /> {previewMode ? "Exit preview" : "Sign out"}</button>
+          <span className="sidebar-user"><span className="user-avatar">{previewMode ? "P" : email.charAt(0).toUpperCase()}</span><span>{previewMode ? "Local preview" : email}<small>{previewMode ? "DEMO ONLY" : "ADMINISTRATOR"}</small></span><ChevronDown size={14} /></span>
         </div>
       </aside>
 
@@ -368,6 +412,7 @@ export function AdminApp() {
           <Link href="/" target="_blank" className="topbar-link">Preview site <ArrowUpRight size={14} /></Link>
         </header>
         <div className="admin-content">
+          {previewMode && <div className="preview-banner"><CircleHelp size={16} /><span><strong>Local preview mode</strong> Edits are saved only in this browser. They are not published to Janak’s live site.</span><button onClick={signOut}>Exit preview</button></div>}
           {errorMessage && <div className="admin-error banner">{errorMessage}</div>}
           {section === "overview" && (
             <Overview content={content} onPages={() => setSection("pages")} onProfile={() => setSection("profile")} onAddPage={addPage} />
@@ -420,7 +465,7 @@ export function AdminApp() {
           {section === "pages" && activePage && (
             <section className="editor-view">
               <button className="back-to-pages" onClick={() => setSelectedPageId(null)}><ArrowLeft size={14} /> All pages</button>
-              <div className="editor-title"><div><span className="admin-kicker">EDIT PAGE</span><h1>{activePage.title}</h1><p>Changes appear on your public site when saved.</p></div><button className="button button-dark" onClick={() => void saveContent(content)} disabled={busy}><Save size={15} /> Save changes</button></div>
+              <div className="editor-title"><div><span className="admin-kicker">EDIT PAGE</span><h1>{activePage.title}</h1><p>{previewMode ? "Preview edits stay in this browser and are not published." : "Changes appear on your public site when saved."}</p></div><button className="button button-dark" onClick={() => void saveContent(content)} disabled={busy}><Save size={15} /> Save changes</button></div>
               <div className="editor-panel">
                 <div className="panel-heading"><FileText size={17} /><div><strong>Page details</strong><span>Title, link, and introduction.</span></div></div>
                 <div className="form-grid">
