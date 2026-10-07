@@ -17,6 +17,7 @@ import {
   LockKeyhole,
   MoveRight,
   Plus,
+  Search,
   Save,
   ShieldCheck,
   Settings,
@@ -49,10 +50,24 @@ export function AdminApp() {
   const [content, setContent] = useState<PortfolioContent>(starterContent);
   const [section, setSection] = useState<Section>("overview");
   const [selectedPageId, setSelectedPageId] = useState<string | null>(null);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
   const [notice, setNotice] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
   const [busy, setBusy] = useState(false);
   const [ready, setReady] = useState(!hasSupabaseConfig);
+
+  useEffect(() => {
+    function handleShortcut(event: KeyboardEvent) {
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
+        event.preventDefault();
+        setSearchOpen(true);
+      }
+      if (event.key === "Escape") setSearchOpen(false);
+    }
+    window.addEventListener("keydown", handleShortcut);
+    return () => window.removeEventListener("keydown", handleShortcut);
+  }, []);
 
   useEffect(() => {
     if (!supabase) return;
@@ -484,6 +499,9 @@ export function AdminApp() {
       <section className="admin-main">
         <header className="admin-topbar">
           <div><span>JANAK STUDIO</span><span className="crumb-divider">/</span><strong>{activePage ? activePage.title : section === "overview" ? "Dashboard" : section === "pages" ? "Pages" : "Homepage"}</strong></div>
+          <button className="studio-search-trigger" onClick={() => { setSearchQuery(""); setSearchOpen(true); }} aria-label="Search portfolio content">
+            <Search size={14} /><span>Search</span><kbd>⌘K</kbd>
+          </button>
           <span className={`studio-status ${previewMode ? "preview" : ""}`}><i />{previewMode ? "Local preview" : "CMS connected"}</span>
           {notice && <span className="save-notice"><Check size={14} /> {notice}</span>}
           <Link href="/" target="_blank" className="topbar-link">View website <ArrowUpRight size={14} /></Link>
@@ -581,7 +599,114 @@ export function AdminApp() {
           )}
         </div>
       </section>
+      {searchOpen && (
+        <CommandPalette
+          content={content}
+          query={searchQuery}
+          onQueryChange={setSearchQuery}
+          onClose={() => setSearchOpen(false)}
+          onOpenProfile={() => {
+            setSection("profile");
+            setSelectedPageId(null);
+            setSearchOpen(false);
+          }}
+          onOpenPages={() => {
+            setSection("pages");
+            setSelectedPageId(null);
+            setSearchOpen(false);
+          }}
+          onOpenPage={(pageId) => {
+            setSection("pages");
+            setSelectedPageId(pageId);
+            setSearchOpen(false);
+          }}
+          onAddPage={() => {
+            setSearchOpen(false);
+            addPage();
+          }}
+        />
+      )}
     </main>
+  );
+}
+
+function CommandPalette({
+  content,
+  query,
+  onQueryChange,
+  onClose,
+  onOpenProfile,
+  onOpenPages,
+  onOpenPage,
+  onAddPage,
+}: {
+  content: PortfolioContent;
+  query: string;
+  onQueryChange: (value: string) => void;
+  onClose: () => void;
+  onOpenProfile: () => void;
+  onOpenPages: () => void;
+  onOpenPage: (pageId: string) => void;
+  onAddPage: () => void;
+}) {
+  const normalizedQuery = query.trim().toLowerCase();
+  const actions = [
+    { id: "profile", label: "Edit homepage profile", detail: "Introduction, contact, and social links", group: "Actions", run: onOpenProfile },
+    { id: "pages", label: "Manage all pages", detail: "Browse and edit portfolio pages", group: "Actions", run: onOpenPages },
+    { id: "new-page", label: "Create a page", detail: "Add a new portfolio section", group: "Actions", run: onAddPage },
+  ];
+  const pageResults = content.pages.flatMap((page) => [
+    {
+      id: `page-${page.id}`,
+      label: page.title,
+      detail: `/${page.slug}`,
+      group: "Pages",
+      run: () => onOpenPage(page.id),
+    },
+    ...page.entries.map((entry, index) => ({
+      id: `entry-${page.id}-${index}`,
+      label: entry.title || "Untitled entry",
+      detail: `In ${page.title}${entry.meta ? ` · ${entry.meta}` : ""}`,
+      group: "Entries",
+      run: () => onOpenPage(page.id),
+    })),
+  ]);
+  const results = [...actions, ...pageResults]
+    .filter((item) => !normalizedQuery || `${item.label} ${item.detail} ${item.group}`.toLowerCase().includes(normalizedQuery))
+    .slice(0, 12);
+
+  return (
+    <div
+      className="studio-command-backdrop"
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget) onClose();
+      }}
+    >
+      <section className="studio-command" role="dialog" aria-modal="true" aria-label="Search portfolio">
+        <div className="studio-command-input">
+          <Search size={17} />
+          <input
+            autoFocus
+            value={query}
+            onChange={(event) => onQueryChange(event.target.value)}
+            placeholder="Search pages, entries, or actions…"
+            aria-label="Search pages, entries, or actions"
+          />
+          <kbd>ESC</kbd>
+        </div>
+        <div className="studio-command-results">
+          {results.length === 0 ? (
+            <p className="studio-command-empty">No pages or entries match “{query}”.</p>
+          ) : results.map((item) => (
+            <button key={item.id} onClick={item.run}>
+              <span className="studio-command-result-copy"><strong>{item.label}</strong><small>{item.detail}</small></span>
+              <span className="studio-command-group">{item.group}</span>
+            </button>
+          ))}
+        </div>
+        <footer><span>Navigate your workspace</span><span><kbd>⌘</kbd> <kbd>K</kbd> to open <span className="studio-command-separator">·</span> Esc to close</span></footer>
+      </section>
+    </div>
   );
 }
 
