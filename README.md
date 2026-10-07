@@ -49,6 +49,10 @@ below.
 6. Sign in at `/admin` to edit the profile, create pages, and publish changes.
    Saved changes are published immediately and appear on the public site.
 
+For a step-by-step production setup walkthrough, visit `/admin/setup`. It
+links to the Supabase and Vercel dashboards and lists the required environment
+variable names without asking you to disclose their values.
+
 Only the publishable/anon key is used in the browser. Never expose the
 Supabase secret/service-role key as a `NEXT_PUBLIC_` variable. Public visitors
 can read the portfolio, but writes are restricted by row-level security to
