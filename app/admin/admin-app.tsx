@@ -36,6 +36,10 @@ export function AdminApp() {
   const [authenticated, setAuthenticated] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [setupCode, setSetupCode] = useState("");
+  const [registrationAvailable, setRegistrationAvailable] = useState(false);
+  const [registrationMode, setRegistrationMode] = useState(false);
   const [content, setContent] = useState<PortfolioContent>(starterContent);
   const [section, setSection] = useState<Section>("overview");
   const [selectedPageId, setSelectedPageId] = useState<string | null>(null);
@@ -61,6 +65,26 @@ export function AdminApp() {
       data.subscription.unsubscribe();
     };
   }, []);
+
+  useEffect(() => {
+    if (!supabase || authenticated) return;
+    let active = true;
+    void fetch("/api/admin/register", { cache: "no-store" })
+      .then(async (response) => {
+        if (!response.ok) throw new Error("Unable to check administrator registration.");
+        return response.json() as Promise<{ available: boolean }>;
+      })
+      .then(({ available }) => {
+        if (active) setRegistrationAvailable(available);
+      })
+      .catch(() => {
+        if (active) {
+          setRegistrationAvailable(false);
+          setErrorMessage("Unable to check admin registration. Verify the Supabase server settings and reload.");
+        }
+      });
+    return () => { active = false; };
+  }, [authenticated]);
 
   useEffect(() => {
     if (!authenticated || !supabase) return;
@@ -92,6 +116,47 @@ export function AdminApp() {
     setErrorMessage("");
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) setErrorMessage(error.message);
+    setBusy(false);
+  }
+
+  async function registerAdmin(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (password !== confirmPassword) {
+      setErrorMessage("Your passwords don’t match.");
+      return;
+    }
+    setBusy(true);
+    setErrorMessage("");
+    try {
+      const response = await fetch("/api/admin/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password, setupCode }),
+      });
+      const result = await response.json() as { error?: string };
+      if (!response.ok) {
+        setErrorMessage(result.error || "Unable to create the administrator account.");
+        setBusy(false);
+        return;
+      }
+
+      if (!supabase) {
+        setErrorMessage("The administrator account was created, but sign-in is not configured.");
+        setBusy(false);
+        return;
+      }
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      setRegistrationAvailable(false);
+      setRegistrationMode(false);
+      setPassword("");
+      setConfirmPassword("");
+      setSetupCode("");
+      if (error) {
+        setErrorMessage(`Your account was created. Please sign in with your new password: ${error.message}`);
+      }
+    } catch {
+      setErrorMessage("Unable to reach the registration service. Please try again.");
+    }
     setBusy(false);
   }
 
@@ -238,9 +303,9 @@ export function AdminApp() {
           <p>The site is ready. Add your Supabase project keys to Vercel to turn on secure sign-in and live content editing.</p>
           <ol>
             <li>Create a Supabase project and run <code>supabase/schema.sql</code>.</li>
-            <li>Add an admin user under <strong>Authentication → Users</strong>.</li>
-            <li>Set <code>NEXT_PUBLIC_SUPABASE_URL</code> and <code>NEXT_PUBLIC_SUPABASE_ANON_KEY</code> in Vercel.</li>
-            <li>Redeploy, then visit <code>/admin</code> to sign in.</li>
+            <li>Set the two <code>NEXT_PUBLIC_SUPABASE_…</code> keys, <code>SUPABASE_SECRET_KEY</code>, and a one-time <code>PORTFOLIO_ADMIN_SETUP_CODE</code> in Vercel.</li>
+            <li>Redeploy, visit <code>/admin</code>, and choose <strong>Create first admin account</strong>.</li>
+            <li>After registration, remove the two server-only setup keys from Vercel.</li>
           </ol>
           <span className="setup-safe"><Check size={15} /> Admin changes are protected by Supabase row-level security.</span>
         </div>
@@ -255,15 +320,22 @@ export function AdminApp() {
         <div className="login-card">
           <div className="login-monogram">J</div>
           <span className="admin-kicker">JANAK’S PORTFOLIO</span>
-          <h1>Welcome back.</h1>
-          <p>Sign in to manage your pages and portfolio.</p>
-          <form onSubmit={signIn}>
+          <h1>{registrationMode ? "Create your account." : "Welcome back."}</h1>
+          <p>{registrationMode ? "Set up Janak’s first secure administrator account." : "Sign in to manage and publish your portfolio."}</p>
+          <form onSubmit={registrationMode ? registerAdmin : signIn}>
             <label>Email address<input type="email" autoComplete="username" required value={email} onChange={(event) => setEmail(event.target.value)} /></label>
-            <label>Password<input type="password" autoComplete="current-password" required value={password} onChange={(event) => setPassword(event.target.value)} /></label>
+            {registrationMode && <label>One-time setup code<input type="password" autoComplete="off" required value={setupCode} onChange={(event) => setSetupCode(event.target.value)} /></label>}
+            <label>Password<input type="password" autoComplete={registrationMode ? "new-password" : "current-password"} minLength={registrationMode ? 12 : undefined} required value={password} onChange={(event) => setPassword(event.target.value)} /></label>
+            {registrationMode && <label>Confirm password<input type="password" autoComplete="new-password" minLength={12} required value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} /></label>}
             {errorMessage && <div className="admin-error">{errorMessage}</div>}
-            <button className="button button-dark login-submit" disabled={busy}>{busy ? <LoaderCircle className="spin" size={16} /> : "Sign in"} <ArrowUpRight size={15} /></button>
+            <button className="button button-dark login-submit" disabled={busy}>{busy ? <LoaderCircle className="spin" size={16} /> : registrationMode ? "Create admin account" : "Sign in"} <ArrowUpRight size={15} /></button>
           </form>
-          <span className="login-note"><CircleHelp size={14} /> Admin accounts are created in Supabase.</span>
+          {registrationAvailable && (
+            <button className="registration-toggle" onClick={() => { setRegistrationMode(!registrationMode); setErrorMessage(""); }}>
+              {registrationMode ? "Already set up? Sign in" : "First time here? Create first admin account"}
+            </button>
+          )}
+          <span className="login-note"><CircleHelp size={14} /> {registrationMode ? "Enter the one-time code configured in Vercel." : "Registration closes after the first admin is created."}</span>
         </div>
       </main>
     );

@@ -21,31 +21,38 @@ below.
 
 1. Create a Supabase project and run [`supabase/schema.sql`](supabase/schema.sql)
    in its SQL editor.
-2. In **Authentication → Users**, create Janak's admin account with a secure
-   password. Disable public sign-ups in **Authentication → Settings**.
-3. Copy that user's UUID and add them to the admin allow-list by running:
-
-   ```sql
-   insert into public.portfolio_admins (user_id)
-   values ('YOUR-AUTH-USER-UUID');
-   ```
-
-4. Copy the project URL and publishable/anon key into `.env.local`:
+2. Disable public sign-ups in **Authentication → Settings**. The portfolio uses
+   a protected, one-time first-admin registration instead.
+3. Copy the project URL and publishable/anon key into `.env.local`, then add
+   Supabase's server-only secret key and a one-time setup code:
 
    ```dotenv
    NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
    NEXT_PUBLIC_SUPABASE_ANON_KEY=your-supabase-publishable-or-anon-key
+   SUPABASE_SECRET_KEY=your-server-only-supabase-secret-key
+   PORTFOLIO_ADMIN_SETUP_CODE=your-long-random-one-time-code
    ```
 
-5. Set the same variables in the Vercel project's **Settings → Environment
-   Variables** for Production and Preview, then redeploy.
-6. Sign in at `/admin`. The first save publishes the starter portfolio to
-   Supabase. From then on, edits appear on the public site.
+   Generate a high-entropy setup code with `openssl rand -hex 32`. Add all four
+   variables in the Vercel project's **Settings → Environment Variables**
+   (Production and Preview), then redeploy. If your project still uses the
+   legacy `service_role` key, name that environment variable
+   `SUPABASE_SERVICE_ROLE_KEY` instead; the server supports either name.
+4. Visit `/admin`, choose **Create first admin account**, and enter Janak's
+   email, a strong password (at least 12 characters), and the setup code. The
+   server creates and verifies the account, then atomically grants the first
+   admin access. Registration closes as soon as the first admin is added.
+5. Remove `SUPABASE_SECRET_KEY` and `PORTFOLIO_ADMIN_SETUP_CODE` from Vercel
+   after registration and redeploy. The secret key is only needed to bootstrap
+   the first account; normal sign-in and CMS publishing use Supabase Auth and
+   row-level security.
+6. Sign in at `/admin` to edit the profile, create pages, and publish changes.
+   Saved changes are published immediately and appear on the public site.
 
-Only use the publishable/anon key in the frontend. Never expose a Supabase
-service-role key as a `NEXT_PUBLIC_` variable. Public visitors can read the
-portfolio, but writes are restricted by row-level security to IDs in
-`portfolio_admins`.
+Only the publishable/anon key is used in the browser. Never expose the
+Supabase secret/service-role key as a `NEXT_PUBLIC_` variable. Public visitors
+can read the portfolio, but writes are restricted by row-level security to
+IDs in `portfolio_admins`.
 
 ## Portfolio editor
 

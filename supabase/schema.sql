@@ -64,6 +64,28 @@ grant select on public.portfolio_content to anon, authenticated;
 grant insert, update, delete on public.portfolio_content to authenticated;
 grant select on public.portfolio_admins to authenticated;
 
--- After creating your account under Authentication > Users, allow it to administer content:
--- insert into public.portfolio_admins (user_id)
--- values ('YOUR-AUTH-USER-UUID');
+-- Atomically allow only one account to claim initial administrator access.
+-- The server uses its private service-role key to call this RPC after creating
+-- the auth account. Later registration attempts are rejected.
+create or replace function public.claim_first_portfolio_admin(target_user_id uuid)
+returns boolean
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  perform pg_advisory_xact_lock(hashtext('portfolio-first-admin'));
+
+  if exists (select 1 from public.portfolio_admins) then
+    return false;
+  end if;
+
+  insert into public.portfolio_admins (user_id)
+  values (target_user_id);
+  return true;
+end;
+$$;
+
+revoke all on function public.claim_first_portfolio_admin(uuid) from public;
+revoke all on function public.claim_first_portfolio_admin(uuid) from anon, authenticated;
+grant execute on function public.claim_first_portfolio_admin(uuid) to service_role;
