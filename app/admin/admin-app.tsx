@@ -14,8 +14,11 @@ import {
   LayoutDashboard,
   LoaderCircle,
   LogOut,
+  LockKeyhole,
+  MoveRight,
   Plus,
   Save,
+  ShieldCheck,
   Settings,
   Trash2,
   UserRound,
@@ -42,6 +45,7 @@ export function AdminApp() {
   const [setupCode, setSetupCode] = useState("");
   const [registrationAvailable, setRegistrationAvailable] = useState(false);
   const [registrationMode, setRegistrationMode] = useState(false);
+  const [resetSent, setResetSent] = useState(false);
   const [content, setContent] = useState<PortfolioContent>(starterContent);
   const [section, setSection] = useState<Section>("overview");
   const [selectedPageId, setSelectedPageId] = useState<string | null>(null);
@@ -116,8 +120,33 @@ export function AdminApp() {
     if (!supabase) return;
     setBusy(true);
     setErrorMessage("");
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) setErrorMessage(error.message);
+    try {
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) setErrorMessage(error.message);
+    } catch (error) {
+      console.error("Unable to reach the admin sign-in service:", error);
+      setErrorMessage("Unable to reach the sign-in service. Please try again.");
+    }
+    setBusy(false);
+  }
+
+  async function sendPasswordReset() {
+    if (!supabase || !email) {
+      setErrorMessage("Enter your account email first.");
+      return;
+    }
+    setBusy(true);
+    setErrorMessage("");
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/admin`,
+      });
+      if (error) setErrorMessage(error.message);
+      else setResetSent(true);
+    } catch (error) {
+      console.error("Unable to request an admin password reset:", error);
+      setErrorMessage("Unable to reach the password reset service. Please try again.");
+    }
     setBusy(false);
   }
 
@@ -359,28 +388,56 @@ export function AdminApp() {
 
   if (!authenticated) {
     return (
-      <main className="login-screen">
-        <Link href="/" className="setup-back"><ArrowLeft size={15} /> Return to portfolio</Link>
-        <div className="login-card">
-          <div className="login-monogram">J</div>
-          <span className="admin-kicker">JANAK’S PORTFOLIO</span>
-          <h1>{registrationMode ? "Create your account." : "Welcome back."}</h1>
-          <p>{registrationMode ? "Set up Janak’s first secure administrator account." : "Sign in to manage and publish your portfolio."}</p>
-          <form onSubmit={registrationMode ? registerAdmin : signIn}>
-            <label>Email address<input type="email" autoComplete="username" required value={email} onChange={(event) => setEmail(event.target.value)} /></label>
-            {registrationMode && <label>One-time setup code<input type="password" autoComplete="off" required value={setupCode} onChange={(event) => setSetupCode(event.target.value)} /></label>}
-            <label>Password<input type="password" autoComplete={registrationMode ? "new-password" : "current-password"} minLength={registrationMode ? 12 : undefined} required value={password} onChange={(event) => setPassword(event.target.value)} /></label>
-            {registrationMode && <label>Confirm password<input type="password" autoComplete="new-password" minLength={12} required value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} /></label>}
-            {errorMessage && <div className="admin-error">{errorMessage}</div>}
-            <button className="button button-dark login-submit" disabled={busy}>{busy ? <LoaderCircle className="spin" size={16} /> : registrationMode ? "Create admin account" : "Sign in"} <ArrowUpRight size={15} /></button>
-          </form>
-          {registrationAvailable && (
-            <button className="registration-toggle" onClick={() => { setRegistrationMode(!registrationMode); setErrorMessage(""); }}>
-              {registrationMode ? "Already set up? Sign in" : "First time here? Create first admin account"}
-            </button>
-          )}
-          <span className="login-note"><CircleHelp size={14} /> {registrationMode ? "Enter the one-time code configured in Vercel." : "Registration closes after the first admin is created."}</span>
-        </div>
+      <main className="admin-login">
+        <section className="login-story">
+          <Link className="login-brand" href="/">
+            <span className="login-brand-mark">J</span>
+            <span>Janak<small>ACADEMIC PORTFOLIO</small></span>
+          </Link>
+          <div className="login-story-copy">
+            <span className="login-overline">JANAK / PRIVATE OFFICE</span>
+            <span className="login-watermark" aria-hidden="true">J</span>
+            <h1>Every idea,<br />in its right place.</h1>
+            <p>One calm workspace for research, teaching, publications, and the details that bring them together.</p>
+          </div>
+          <div className="login-story-footer"><span>CONTENT STUDIO</span><span><i /> OWNER ACCESS ONLY</span></div>
+        </section>
+        <section className="login-stage">
+          <div className="login-card">
+            <div className="login-card-top"><span>PRIVATE WORKSPACE</span><span><ShieldCheck size={14} /> SECURE LOGIN</span></div>
+            <div className="login-monogram">J</div>
+            <h2>{registrationMode ? "Set up your account." : <>One secure sign-in.<br /><em>Your work, in order.</em></>}</h2>
+            <p className="login-description">{registrationMode ? "Create the owner account to manage Janak’s academic portfolio." : "Sign in to edit pages, update your profile, and publish new work."}</p>
+            <form onSubmit={registrationMode ? registerAdmin : signIn}>
+              <label htmlFor="admin-email">Email address</label>
+              <input id="admin-email" type="email" autoComplete="username" placeholder="you@example.com" required value={email} onChange={(event) => { setEmail(event.target.value); setResetSent(false); }} />
+              {registrationMode && (
+                <>
+                  <label htmlFor="admin-setup-code">One-time setup code</label>
+                  <input id="admin-setup-code" type="password" autoComplete="off" placeholder="Enter your private setup code" required value={setupCode} onChange={(event) => setSetupCode(event.target.value)} />
+                </>
+              )}
+              <div className="login-password-label"><label htmlFor="admin-password">Password</label>{!registrationMode && <button type="button" onClick={() => void sendPasswordReset()} disabled={busy}>Forgot password?</button>}</div>
+              <input id="admin-password" type="password" autoComplete={registrationMode ? "new-password" : "current-password"} minLength={registrationMode ? 12 : undefined} placeholder={registrationMode ? "At least 12 characters" : "Enter your password"} required value={password} onChange={(event) => setPassword(event.target.value)} />
+              {registrationMode && (
+                <>
+                  <label htmlFor="admin-confirm-password">Confirm password</label>
+                  <input id="admin-confirm-password" type="password" autoComplete="new-password" minLength={12} placeholder="Enter your password again" required value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} />
+                </>
+              )}
+              {errorMessage && <div className="admin-error" role="alert">{errorMessage}</div>}
+              {resetSent && <div className="login-success" role="status"><Check size={15} /> Password reset instructions were sent to your email.</div>}
+              <button className="button button-dark login-submit" disabled={busy}>{busy ? <LoaderCircle className="spin" size={16} /> : registrationMode ? "Create owner account" : "Sign in to your studio"} {busy ? null : <MoveRight size={16} />}</button>
+            </form>
+            {registrationAvailable && (
+              <button className="registration-toggle" onClick={() => { setRegistrationMode(!registrationMode); setErrorMessage(""); setResetSent(false); }}>
+                {registrationMode ? "Already set up? Sign in" : "First time here? Create first admin account"}
+              </button>
+            )}
+            <div className="login-security"><LockKeyhole size={15} /><span><strong>Owner-only editing.</strong> Page changes and site settings are protected. Public visitors cannot enter the CMS.</span></div>
+            <div className="login-card-footer"><Link href="/"><ArrowLeft size={13} /> View public portfolio</Link><span>{registrationMode ? "FIRST OWNER SETUP" : "ONE OWNER LOGIN"}</span></div>
+          </div>
+        </section>
       </main>
     );
   }
