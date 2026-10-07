@@ -1,0 +1,91 @@
+-- Run this in the Supabase SQL editor before configuring the Vercel environment.
+create table if not exists public.portfolio_admins (
+  user_id uuid primary key references auth.users (id) on delete cascade
+);
+
+create table if not exists public.portfolio_content (
+  id text primary key check (id = 'primary'),
+  data jsonb not null,
+  updated_at timestamptz not null default now()
+);
+
+alter table public.portfolio_admins enable row level security;
+alter table public.portfolio_content enable row level security;
+
+create or replace function public.is_portfolio_admin()
+returns boolean
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select exists (
+    select 1
+    from public.portfolio_admins
+    where user_id = (select auth.uid())
+  );
+$$;
+
+revoke all on function public.is_portfolio_admin() from public;
+grant execute on function public.is_portfolio_admin() to authenticated;
+
+drop policy if exists "Public can read portfolio content" on public.portfolio_content;
+create policy "Public can read portfolio content"
+  on public.portfolio_content for select
+  to anon, authenticated
+  using (true);
+
+drop policy if exists "Admins can insert portfolio content" on public.portfolio_content;
+create policy "Admins can insert portfolio content"
+  on public.portfolio_content for insert
+  to authenticated
+  with check (public.is_portfolio_admin());
+
+drop policy if exists "Admins can update portfolio content" on public.portfolio_content;
+create policy "Admins can update portfolio content"
+  on public.portfolio_content for update
+  to authenticated
+  using (public.is_portfolio_admin())
+  with check (public.is_portfolio_admin());
+
+drop policy if exists "Admins can delete portfolio content" on public.portfolio_content;
+create policy "Admins can delete portfolio content"
+  on public.portfolio_content for delete
+  to authenticated
+  using (public.is_portfolio_admin());
+
+drop policy if exists "Admins can view their admin record" on public.portfolio_admins;
+create policy "Admins can view their admin record"
+  on public.portfolio_admins for select
+  to authenticated
+  using (user_id = (select auth.uid()));
+
+grant select on public.portfolio_content to anon, authenticated;
+grant insert, update, delete on public.portfolio_content to authenticated;
+grant select on public.portfolio_admins to authenticated;
+
+-- Atomically allow only one account to claim initial administrator access.
+-- The server uses its private service-role key to call this RPC after creating
+-- the auth account. Later registration attempts are rejected.
+create or replace function public.claim_first_portfolio_admin(target_user_id uuid)
+returns boolean
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  perform pg_advisory_xact_lock(hashtext('portfolio-first-admin'));
+
+  if exists (select 1 from public.portfolio_admins) then
+    return false;
+  end if;
+
+  insert into public.portfolio_admins (user_id)
+  values (target_user_id);
+  return true;
+end;
+$$;
+
+revoke all on function public.claim_first_portfolio_admin(uuid) from public;
+revoke all on function public.claim_first_portfolio_admin(uuid) from anon, authenticated;
+grant execute on function public.claim_first_portfolio_admin(uuid) to service_role;
