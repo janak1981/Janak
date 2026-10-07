@@ -69,4 +69,7 @@ IDs in `portfolio_admins`.
 
 This repository is linked to the Vercel project whose production domain is
 `janak-nine.vercel.app`. Vercel builds the Next.js app using `npm run build`.
-Configure Supabase in Vercel before expecting live admin edits to persist.
+The repository's `vercel.json` explicitly selects the Next.js framework and
+its `.next` build output, overriding a stale dashboard setting that expects a
+`public` directory. Configure Supabase in Vercel before expecting live admin
+edits to persist.
