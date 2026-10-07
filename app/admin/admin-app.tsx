@@ -382,6 +382,7 @@ export function AdminApp() {
           <span className="admin-kicker">ONE LAST CONNECTION</span>
           <h1>Connect your portfolio.</h1>
           <p>The site is ready. Add your Supabase project keys to Vercel to turn on secure sign-in and live content editing.</p>
+          <Link href="/admin/setup" className="setup-guide-link">Open the guided setup <ArrowUpRight size={15} /></Link>
           <ol>
             <li>Create a Supabase project and run <code>supabase/schema.sql</code>.</li>
             <li>Set the two <code>NEXT_PUBLIC_SUPABASE_…</code> keys, <code>SUPABASE_SECRET_KEY</code>, and a one-time <code>PORTFOLIO_ADMIN_SETUP_CODE</code> in Vercel.</li>
