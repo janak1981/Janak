@@ -14,8 +14,12 @@ import {
   LayoutDashboard,
   LoaderCircle,
   LogOut,
+  LockKeyhole,
+  MoveRight,
   Plus,
+  Search,
   Save,
+  ShieldCheck,
   Settings,
   Trash2,
   UserRound,
@@ -42,13 +46,28 @@ export function AdminApp() {
   const [setupCode, setSetupCode] = useState("");
   const [registrationAvailable, setRegistrationAvailable] = useState(false);
   const [registrationMode, setRegistrationMode] = useState(false);
+  const [resetSent, setResetSent] = useState(false);
   const [content, setContent] = useState<PortfolioContent>(starterContent);
   const [section, setSection] = useState<Section>("overview");
   const [selectedPageId, setSelectedPageId] = useState<string | null>(null);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
   const [notice, setNotice] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
   const [busy, setBusy] = useState(false);
   const [ready, setReady] = useState(!hasSupabaseConfig);
+
+  useEffect(() => {
+    function handleShortcut(event: KeyboardEvent) {
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
+        event.preventDefault();
+        setSearchOpen(true);
+      }
+      if (event.key === "Escape") setSearchOpen(false);
+    }
+    window.addEventListener("keydown", handleShortcut);
+    return () => window.removeEventListener("keydown", handleShortcut);
+  }, []);
 
   useEffect(() => {
     if (!supabase) return;
@@ -116,8 +135,33 @@ export function AdminApp() {
     if (!supabase) return;
     setBusy(true);
     setErrorMessage("");
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) setErrorMessage(error.message);
+    try {
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) setErrorMessage(error.message);
+    } catch (error) {
+      console.error("Unable to reach the admin sign-in service:", error);
+      setErrorMessage("Unable to reach the sign-in service. Please try again.");
+    }
+    setBusy(false);
+  }
+
+  async function sendPasswordReset() {
+    if (!supabase || !email) {
+      setErrorMessage("Enter your account email first.");
+      return;
+    }
+    setBusy(true);
+    setErrorMessage("");
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/admin`,
+      });
+      if (error) setErrorMessage(error.message);
+      else setResetSent(true);
+    } catch (error) {
+      console.error("Unable to request an admin password reset:", error);
+      setErrorMessage("Unable to reach the password reset service. Please try again.");
+    }
     setBusy(false);
   }
 
@@ -359,28 +403,56 @@ export function AdminApp() {
 
   if (!authenticated) {
     return (
-      <main className="login-screen">
-        <Link href="/" className="setup-back"><ArrowLeft size={15} /> Return to portfolio</Link>
-        <div className="login-card">
-          <div className="login-monogram">J</div>
-          <span className="admin-kicker">JANAK’S PORTFOLIO</span>
-          <h1>{registrationMode ? "Create your account." : "Welcome back."}</h1>
-          <p>{registrationMode ? "Set up Janak’s first secure administrator account." : "Sign in to manage and publish your portfolio."}</p>
-          <form onSubmit={registrationMode ? registerAdmin : signIn}>
-            <label>Email address<input type="email" autoComplete="username" required value={email} onChange={(event) => setEmail(event.target.value)} /></label>
-            {registrationMode && <label>One-time setup code<input type="password" autoComplete="off" required value={setupCode} onChange={(event) => setSetupCode(event.target.value)} /></label>}
-            <label>Password<input type="password" autoComplete={registrationMode ? "new-password" : "current-password"} minLength={registrationMode ? 12 : undefined} required value={password} onChange={(event) => setPassword(event.target.value)} /></label>
-            {registrationMode && <label>Confirm password<input type="password" autoComplete="new-password" minLength={12} required value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} /></label>}
-            {errorMessage && <div className="admin-error">{errorMessage}</div>}
-            <button className="button button-dark login-submit" disabled={busy}>{busy ? <LoaderCircle className="spin" size={16} /> : registrationMode ? "Create admin account" : "Sign in"} <ArrowUpRight size={15} /></button>
-          </form>
-          {registrationAvailable && (
-            <button className="registration-toggle" onClick={() => { setRegistrationMode(!registrationMode); setErrorMessage(""); }}>
-              {registrationMode ? "Already set up? Sign in" : "First time here? Create first admin account"}
-            </button>
-          )}
-          <span className="login-note"><CircleHelp size={14} /> {registrationMode ? "Enter the one-time code configured in Vercel." : "Registration closes after the first admin is created."}</span>
-        </div>
+      <main className="admin-login">
+        <section className="login-story">
+          <Link className="login-brand" href="/">
+            <span className="login-brand-mark">J</span>
+            <span>Janak<small>ACADEMIC PORTFOLIO</small></span>
+          </Link>
+          <div className="login-story-copy">
+            <span className="login-overline">JANAK / PRIVATE OFFICE</span>
+            <span className="login-watermark" aria-hidden="true">J</span>
+            <h1>Every idea,<br />in its right place.</h1>
+            <p>One calm workspace for research, teaching, publications, and the details that bring them together.</p>
+          </div>
+          <div className="login-story-footer"><span>CONTENT STUDIO</span><span><i /> OWNER ACCESS ONLY</span></div>
+        </section>
+        <section className="login-stage">
+          <div className="login-card">
+            <div className="login-card-top"><span>PRIVATE WORKSPACE</span><span><ShieldCheck size={14} /> SECURE LOGIN</span></div>
+            <div className="login-monogram">J</div>
+            <h2>{registrationMode ? "Set up your account." : <>One secure sign-in.<br /><em>Your work, in order.</em></>}</h2>
+            <p className="login-description">{registrationMode ? "Create the owner account to manage Janak’s academic portfolio." : "Sign in to edit pages, update your profile, and publish new work."}</p>
+            <form onSubmit={registrationMode ? registerAdmin : signIn}>
+              <label htmlFor="admin-email">Email address</label>
+              <input id="admin-email" type="email" autoComplete="username" placeholder="you@example.com" required value={email} onChange={(event) => { setEmail(event.target.value); setResetSent(false); }} />
+              {registrationMode && (
+                <>
+                  <label htmlFor="admin-setup-code">One-time setup code</label>
+                  <input id="admin-setup-code" type="password" autoComplete="off" placeholder="Enter your private setup code" required value={setupCode} onChange={(event) => setSetupCode(event.target.value)} />
+                </>
+              )}
+              <div className="login-password-label"><label htmlFor="admin-password">Password</label>{!registrationMode && <button type="button" onClick={() => void sendPasswordReset()} disabled={busy}>Forgot password?</button>}</div>
+              <input id="admin-password" type="password" autoComplete={registrationMode ? "new-password" : "current-password"} minLength={registrationMode ? 12 : undefined} placeholder={registrationMode ? "At least 12 characters" : "Enter your password"} required value={password} onChange={(event) => setPassword(event.target.value)} />
+              {registrationMode && (
+                <>
+                  <label htmlFor="admin-confirm-password">Confirm password</label>
+                  <input id="admin-confirm-password" type="password" autoComplete="new-password" minLength={12} placeholder="Enter your password again" required value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} />
+                </>
+              )}
+              {errorMessage && <div className="admin-error" role="alert">{errorMessage}</div>}
+              {resetSent && <div className="login-success" role="status"><Check size={15} /> Password reset instructions were sent to your email.</div>}
+              <button className="button button-dark login-submit" disabled={busy}>{busy ? <LoaderCircle className="spin" size={16} /> : registrationMode ? "Create owner account" : "Sign in to your studio"} {busy ? null : <MoveRight size={16} />}</button>
+            </form>
+            {registrationAvailable && (
+              <button className="registration-toggle" onClick={() => { setRegistrationMode(!registrationMode); setErrorMessage(""); setResetSent(false); }}>
+                {registrationMode ? "Already set up? Sign in" : "First time here? Create first admin account"}
+              </button>
+            )}
+            <div className="login-security"><LockKeyhole size={15} /><span><strong>Owner-only editing.</strong> Page changes and site settings are protected. Public visitors cannot enter the CMS.</span></div>
+            <div className="login-card-footer"><Link href="/"><ArrowLeft size={13} /> View public portfolio</Link><span>{registrationMode ? "FIRST OWNER SETUP" : "ONE OWNER LOGIN"}</span></div>
+          </div>
+        </section>
       </main>
     );
   }
@@ -390,16 +462,35 @@ export function AdminApp() {
   return (
     <main className="admin-layout">
       <aside className="admin-sidebar">
-        <Link className="wordmark admin-wordmark" href="/">
-          <span className="wordmark-symbol">J</span>
-          <span>J<span className="admin-brand-sub">PORTFOLIO STUDIO</span></span>
+        <Link className="studio-brand" href="/">
+          <span className="studio-brand-mark">J</span>
+          <span className="studio-brand-name">JANAK<small>WEBSITE STUDIO</small></span>
         </Link>
-        <span className="sidebar-label">WORKSPACE</span>
-        <button className={`sidebar-item ${section === "overview" ? "selected" : ""}`} onClick={() => { setSection("overview"); setSelectedPageId(null); }}><LayoutDashboard size={17} /> Overview</button>
-        <button className={`sidebar-item ${section === "pages" ? "selected" : ""}`} onClick={() => { setSection("pages"); setSelectedPageId(null); }}><FileText size={17} /> Pages <span className="sidebar-count">{content.pages.length}</span></button>
-        <button className={`sidebar-item ${section === "profile" ? "selected" : ""}`} onClick={() => { setSection("profile"); setSelectedPageId(null); }}><UserRound size={17} /> Profile</button>
+        <nav className="studio-navigation" aria-label="Admin navigation">
+          <div className="studio-nav-group">
+            <span className="sidebar-label">WORKSPACE</span>
+            <button className={`sidebar-item ${section === "overview" ? "selected" : ""}`} onClick={() => { setSection("overview"); setSelectedPageId(null); }}><LayoutDashboard size={17} /> Overview</button>
+          </div>
+          <div className="studio-nav-group">
+            <span className="sidebar-label">WEBSITE</span>
+            <button className={`sidebar-item ${section === "profile" ? "selected" : ""}`} onClick={() => { setSection("profile"); setSelectedPageId(null); }}><UserRound size={17} /> Home</button>
+            <button className={`sidebar-item ${section === "pages" && !activePage ? "selected" : ""}`} onClick={() => { setSection("pages"); setSelectedPageId(null); }}><FileText size={17} /> Pages <span className="sidebar-count">{content.pages.length}</span></button>
+          </div>
+          <div className="studio-nav-group">
+            <span className="sidebar-label">CONTENT</span>
+            {content.pages.map((page) => (
+              <button
+                className={`sidebar-item ${activePage?.id === page.id ? "selected" : ""}`}
+                key={page.id}
+                onClick={() => { setSection("pages"); setSelectedPageId(page.id); }}
+              >
+                <BookOpen size={16} /> <span className="studio-nav-text">{page.navLabel}</span>
+              </button>
+            ))}
+          </div>
+        </nav>
         <div className="sidebar-bottom">
-          <Link className="sidebar-preview" href="/" target="_blank">View live site <ArrowUpRight size={14} /></Link>
+          <Link className="sidebar-preview" href="/" target="_blank">View website <ArrowUpRight size={14} /></Link>
           <button className="sidebar-item signout" onClick={signOut}><LogOut size={16} /> {previewMode ? "Exit preview" : "Sign out"}</button>
           <span className="sidebar-user"><span className="user-avatar">{previewMode ? "P" : email.charAt(0).toUpperCase()}</span><span>{previewMode ? "Local preview" : email}<small>{previewMode ? "DEMO ONLY" : "ADMINISTRATOR"}</small></span><ChevronDown size={14} /></span>
         </div>
@@ -407,15 +498,26 @@ export function AdminApp() {
 
       <section className="admin-main">
         <header className="admin-topbar">
-          <div><span>PORTFOLIO STUDIO</span><span className="crumb-divider">/</span><strong>{activePage ? activePage.title : section === "overview" ? "Overview" : section === "pages" ? "Pages" : "Profile"}</strong></div>
+          <div><span>JANAK STUDIO</span><span className="crumb-divider">/</span><strong>{activePage ? activePage.title : section === "overview" ? "Dashboard" : section === "pages" ? "Pages" : "Homepage"}</strong></div>
+          <button className="studio-search-trigger" onClick={() => { setSearchQuery(""); setSearchOpen(true); }} aria-label="Search portfolio content">
+            <Search size={14} /><span>Search</span><kbd>⌘K</kbd>
+          </button>
+          <span className={`studio-status ${previewMode ? "preview" : ""}`}><i />{previewMode ? "Local preview" : "CMS connected"}</span>
           {notice && <span className="save-notice"><Check size={14} /> {notice}</span>}
-          <Link href="/" target="_blank" className="topbar-link">Preview site <ArrowUpRight size={14} /></Link>
+          <Link href="/" target="_blank" className="topbar-link">View website <ArrowUpRight size={14} /></Link>
         </header>
         <div className="admin-content">
           {previewMode && <div className="preview-banner"><CircleHelp size={16} /><span><strong>Local preview mode</strong> Edits are saved only in this browser. They are not published to Janak’s live site.</span><button onClick={signOut}>Exit preview</button></div>}
           {errorMessage && <div className="admin-error banner">{errorMessage}</div>}
           {section === "overview" && (
-            <Overview content={content} onPages={() => setSection("pages")} onProfile={() => setSection("profile")} onAddPage={addPage} />
+            <Overview
+              content={content}
+              previewMode={previewMode}
+              onPages={() => { setSection("pages"); setSelectedPageId(null); }}
+              onProfile={() => { setSection("profile"); setSelectedPageId(null); }}
+              onAddPage={addPage}
+              onSelectPage={(pageId) => { setSection("pages"); setSelectedPageId(pageId); }}
+            />
           )}
           {section === "profile" && (
             <section className="editor-view">
@@ -497,45 +599,182 @@ export function AdminApp() {
           )}
         </div>
       </section>
+      {searchOpen && (
+        <CommandPalette
+          content={content}
+          query={searchQuery}
+          onQueryChange={setSearchQuery}
+          onClose={() => setSearchOpen(false)}
+          onOpenProfile={() => {
+            setSection("profile");
+            setSelectedPageId(null);
+            setSearchOpen(false);
+          }}
+          onOpenPages={() => {
+            setSection("pages");
+            setSelectedPageId(null);
+            setSearchOpen(false);
+          }}
+          onOpenPage={(pageId) => {
+            setSection("pages");
+            setSelectedPageId(pageId);
+            setSearchOpen(false);
+          }}
+          onAddPage={() => {
+            setSearchOpen(false);
+            addPage();
+          }}
+        />
+      )}
     </main>
+  );
+}
+
+function CommandPalette({
+  content,
+  query,
+  onQueryChange,
+  onClose,
+  onOpenProfile,
+  onOpenPages,
+  onOpenPage,
+  onAddPage,
+}: {
+  content: PortfolioContent;
+  query: string;
+  onQueryChange: (value: string) => void;
+  onClose: () => void;
+  onOpenProfile: () => void;
+  onOpenPages: () => void;
+  onOpenPage: (pageId: string) => void;
+  onAddPage: () => void;
+}) {
+  const normalizedQuery = query.trim().toLowerCase();
+  const actions = [
+    { id: "profile", label: "Edit homepage profile", detail: "Introduction, contact, and social links", group: "Actions", run: onOpenProfile },
+    { id: "pages", label: "Manage all pages", detail: "Browse and edit portfolio pages", group: "Actions", run: onOpenPages },
+    { id: "new-page", label: "Create a page", detail: "Add a new portfolio section", group: "Actions", run: onAddPage },
+  ];
+  const pageResults = content.pages.flatMap((page) => [
+    {
+      id: `page-${page.id}`,
+      label: page.title,
+      detail: `/${page.slug}`,
+      group: "Pages",
+      run: () => onOpenPage(page.id),
+    },
+    ...page.entries.map((entry, index) => ({
+      id: `entry-${page.id}-${index}`,
+      label: entry.title || "Untitled entry",
+      detail: `In ${page.title}${entry.meta ? ` · ${entry.meta}` : ""}`,
+      group: "Entries",
+      run: () => onOpenPage(page.id),
+    })),
+  ]);
+  const results = [...actions, ...pageResults]
+    .filter((item) => !normalizedQuery || `${item.label} ${item.detail} ${item.group}`.toLowerCase().includes(normalizedQuery))
+    .slice(0, 12);
+
+  return (
+    <div
+      className="studio-command-backdrop"
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget) onClose();
+      }}
+    >
+      <section className="studio-command" role="dialog" aria-modal="true" aria-label="Search portfolio">
+        <div className="studio-command-input">
+          <Search size={17} />
+          <input
+            autoFocus
+            value={query}
+            onChange={(event) => onQueryChange(event.target.value)}
+            placeholder="Search pages, entries, or actions…"
+            aria-label="Search pages, entries, or actions"
+          />
+          <kbd>ESC</kbd>
+        </div>
+        <div className="studio-command-results">
+          {results.length === 0 ? (
+            <p className="studio-command-empty">No pages or entries match “{query}”.</p>
+          ) : results.map((item) => (
+            <button key={item.id} onClick={item.run}>
+              <span className="studio-command-result-copy"><strong>{item.label}</strong><small>{item.detail}</small></span>
+              <span className="studio-command-group">{item.group}</span>
+            </button>
+          ))}
+        </div>
+        <footer><span>Navigate your workspace</span><span><kbd>⌘</kbd> <kbd>K</kbd> to open <span className="studio-command-separator">·</span> Esc to close</span></footer>
+      </section>
+    </div>
   );
 }
 
 function Overview({
   content,
+  previewMode,
   onPages,
   onProfile,
   onAddPage,
+  onSelectPage,
 }: {
   content: PortfolioContent;
+  previewMode: boolean;
   onPages: () => void;
   onProfile: () => void;
   onAddPage: () => void;
+  onSelectPage: (pageId: string) => void;
 }) {
   return (
-    <section className="editor-view">
-      <div className="welcome-banner">
-        <div><span className="admin-kicker">YOUR PORTFOLIO, YOUR WAY</span><h1>Good to see you, {content.settings.name}.</h1><p>Small edits, new ideas, a whole new chapter. It’s all yours to shape.</p></div>
-        <div className="welcome-sparkle"><BookOpen size={29} strokeWidth={1.25} /></div>
-      </div>
-      <div className="stats-row">
-        <div className="stat-card"><span>PUBLISHED PAGES</span><strong>{String(content.pages.length).padStart(2, "0")}</strong><small>in your portfolio</small></div>
-        <div className="stat-card"><span>CONTENT ENTRIES</span><strong>{String(content.pages.reduce((total, page) => total + page.entries.length, 0)).padStart(2, "0")}</strong><small>across every page</small></div>
-        <Link href="/" target="_blank" className="stat-card stat-link"><span>YOUR PUBLIC SITE</span><strong><ArrowUpRight size={22} /></strong><small>See what visitors see</small></Link>
-      </div>
-      <div className="overview-lower">
-        <div className="editor-panel quick-actions">
-          <div className="panel-heading"><LayoutDashboard size={17} /><div><strong>Quick actions</strong><span>Pick up where you left off.</span></div></div>
-          <button onClick={onPages}><FileText size={16} /><span>Manage your pages</span><ArrowUpRight size={15} /></button>
-          <button onClick={onProfile}><UserRound size={16} /><span>Update your profile</span><ArrowUpRight size={15} /></button>
-          <button onClick={onAddPage}><Plus size={16} /><span>Create a new page</span><ArrowUpRight size={15} /></button>
+    <section className="studio-dashboard">
+      <div className="studio-dashboard-heading">
+        <div>
+          <span className="admin-kicker">YOUR DIGITAL WORKSPACE</span>
+          <h1>Welcome back, {content.settings.name}.</h1>
+          <p>Your website is ready for its next chapter.</p>
         </div>
-        <div className="editor-panel recent-pages">
-          <div className="panel-heading"><BookOpen size={17} /><div><strong>Your pages</strong><span>Recently in your portfolio.</span></div></div>
-          {content.pages.slice(0, 4).map((page) => (
-            <button key={page.id} onClick={onPages}><span>{page.navLabel}</span><small>/{page.slug}</small><ArrowUpRight size={14} /></button>
-          ))}
+        <div className="studio-dashboard-actions">
+          <button className="button button-dark" onClick={onAddPage}><Plus size={15} /> Create page</button>
+          <Link href="/" target="_blank" className="button button-light">View website <ArrowUpRight size={15} /></Link>
         </div>
+      </div>
+
+      <div className={`studio-live-card ${previewMode ? "is-preview" : ""}`}>
+        <span className="studio-live-indicator"><i /></span>
+        <div><strong>{previewMode ? "Local preview mode" : "Your CMS is connected"}</strong><span>{previewMode ? "Edits are saved in this browser only and are not published." : "Your saved portfolio changes are published to the website."}</span></div>
+        <span className="studio-live-label">{previewMode ? "PREVIEW" : "READY"}</span>
+      </div>
+
+      <div className="studio-stats">
+        <div className="studio-stat"><span>CONTENT PAGES</span><strong>{String(content.pages.length).padStart(2, "0")}</strong><small>in your website</small></div>
+        <div className="studio-stat"><span>PORTFOLIO ENTRIES</span><strong>{String(content.pages.reduce((total, page) => total + page.entries.length, 0)).padStart(2, "0")}</strong><small>across all pages</small></div>
+        <div className="studio-stat"><span>SOCIAL PROFILES</span><strong>{String(content.settings.social.length).padStart(2, "0")}</strong><small>linked from your profile</small></div>
+      </div>
+
+      <div className="studio-dashboard-grid">
+        <section className="studio-card studio-quick-card">
+          <div className="studio-card-heading"><div><span className="admin-kicker">GET SOMETHING DONE</span><h2>Quick actions</h2></div></div>
+          <button onClick={onAddPage}><span className="studio-action-icon"><Plus size={16} /></span><span><strong>Create a page</strong><small>Add a new section to your portfolio</small></span><ArrowUpRight size={15} /></button>
+          <button onClick={onProfile}><span className="studio-action-icon"><UserRound size={16} /></span><span><strong>Update homepage</strong><small>Edit your introduction and contact details</small></span><ArrowUpRight size={15} /></button>
+          <button onClick={onPages}><span className="studio-action-icon"><FileText size={16} /></span><span><strong>Manage pages</strong><small>Organize your portfolio sections</small></span><ArrowUpRight size={15} /></button>
+        </section>
+        <section className="studio-card studio-pages-card">
+          <div className="studio-card-heading">
+            <div><span className="admin-kicker">YOUR WEBSITE</span><h2>Content pages</h2></div>
+            <button className="studio-text-action" onClick={onPages}>Manage <ArrowUpRight size={13} /></button>
+          </div>
+          <div className="studio-page-list">
+            {content.pages.map((page) => (
+              <button key={page.id} onClick={() => onSelectPage(page.id)}>
+                <span className="studio-page-icon"><BookOpen size={16} /></span>
+                <span><strong>{page.navLabel}</strong><small>/{page.slug}</small></span>
+                <span className="studio-page-count">{page.entries.length} {page.entries.length === 1 ? "entry" : "entries"}</span>
+                <ArrowUpRight size={14} />
+              </button>
+            ))}
+            {content.pages.length === 0 && <p className="studio-empty">Create your first page to start shaping your website.</p>}
+          </div>
+        </section>
       </div>
     </section>
   );
