@@ -34,16 +34,16 @@ below.
    PORTFOLIO_ADMIN_SETUP_CODE=your-long-random-one-time-code
    ```
 
-   Generate a high-entropy setup code with `openssl rand -hex 32`. Add all four
+   Generate a high-entropy setup code with `openssl rand -hex 32`. Add all five
    variables in the Vercel project's **Settings → Environment Variables**
    (Production and Preview), then redeploy. If your project still uses the
    legacy `service_role` key, name that environment variable
    `SUPABASE_SERVICE_ROLE_KEY` instead; the server supports either name.
-4. Visit `/admin`, choose **Create first admin account**, and enter the
-   configured owner email, a strong password (at least 12 characters), and
-   the setup code. The server only accepts the configured email, creates and
-   verifies the account, then atomically grants the first admin access.
-   Registration closes as soon as the first admin is added.
+4. Visit `/admin/setup` and use the readiness checklist to confirm the
+   connection. When all checks pass, enter the configured owner email, a new
+   strong password (at least 12 characters), and the setup code in the
+   one-time form. The server only accepts the configured email and atomically
+   grants first-admin access; setup closes as soon as the owner is created.
 5. Remove `SUPABASE_SECRET_KEY` and `PORTFOLIO_ADMIN_SETUP_CODE` from Vercel
    after registration and redeploy. The secret key is only needed to bootstrap
    the first account; normal sign-in and CMS publishing use Supabase Auth and

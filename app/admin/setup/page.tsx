@@ -8,6 +8,7 @@ import {
   ShieldCheck,
 } from "lucide-react";
 import { SetupAccessMessage } from "./setup-access-message";
+import { SetupWizard } from "./setup-wizard";
 
 export const metadata = {
   title: "Admin setup | Janak Studio",
@@ -49,8 +50,10 @@ export default async function AdminSetupPage({
             <span className="setup-icon"><LockKeyhole size={20} /></span>
             <span className="admin-kicker">ONE-TIME CONNECTION</span>
             <h1>Connect your website.</h1>
-            <p>Complete these steps in your own Supabase and Vercel dashboards. This guide never asks you to paste credentials or passwords into this page.</p>
+            <p>Configure Supabase and Vercel in their own dashboards. Enter the owner password and one-time setup code only in the secure form below; never send them through chat.</p>
           </div>
+
+          <SetupWizard />
 
           <ol className="studio-setup-steps">
             <li>
@@ -77,7 +80,7 @@ export default async function AdminSetupPage({
                 <div className="studio-env-list" aria-label="Required environment variable names">
                   {environmentVariables.map((name) => <code key={name}>{name}</code>)}
                 </div>
-                <span className="studio-setup-note"><LockKeyhole size={14} /> Never prefix the Supabase secret or setup code with <code>NEXT_PUBLIC_</code>. Never put their values in source code, a browser form, or chat.</span>
+                <span className="studio-setup-note"><LockKeyhole size={14} /> Never expose the Supabase secret key with <code>NEXT_PUBLIC_</code> or enter it in a form. Keep the one-time setup code private; enter it only in the owner form below, never in chat.</span>
                 <a href="https://vercel.com/janak14/janak/settings/environment-variables" target="_blank" rel="noreferrer">Open Janak’s Vercel environment settings <ExternalLink size={13} /></a>
               </div>
             </li>
@@ -85,8 +88,8 @@ export default async function AdminSetupPage({
               <span className="studio-setup-step-number">04</span>
               <div>
                 <h2>Redeploy, then create the owner account</h2>
-                <p>Redeploy after saving the variables. Return here and open the admin page; the first-admin option appears when the server setup is ready. Enter the same owner email configured in Vercel, a new unique password, and the one-time setup code directly in the secure form.</p>
-                <Link href="/admin" className="studio-setup-primary">Continue to secure admin setup <ArrowUpRight size={15} /></Link>
+                <p>Redeploy after saving the variables. Return to this page and recheck the setup status. When all checks pass, use the one-time form above with the configured owner email, a new unique password, and the setup code.</p>
+                <Link href="#setup-wizard-title" className="studio-setup-primary">Return to the one-time setup wizard <ArrowUpRight size={15} /></Link>
               </div>
             </li>
             <li>
