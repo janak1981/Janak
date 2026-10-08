@@ -29,6 +29,7 @@ below.
    ```dotenv
    NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
    NEXT_PUBLIC_SUPABASE_ANON_KEY=your-supabase-publishable-or-anon-key
+   PORTFOLIO_ADMIN_EMAIL=your-owner-email@example.com
    SUPABASE_SECRET_KEY=your-server-only-supabase-secret-key
    PORTFOLIO_ADMIN_SETUP_CODE=your-long-random-one-time-code
    ```
@@ -38,25 +39,28 @@ below.
    (Production and Preview), then redeploy. If your project still uses the
    legacy `service_role` key, name that environment variable
    `SUPABASE_SERVICE_ROLE_KEY` instead; the server supports either name.
-4. Visit `/admin`, choose **Create first admin account**, and enter Janak's
-   email, a strong password (at least 12 characters), and the setup code. The
-   server creates and verifies the account, then atomically grants the first
-   admin access. Registration closes as soon as the first admin is added.
+4. Visit `/admin`, choose **Create first admin account**, and enter the
+   configured owner email, a strong password (at least 12 characters), and
+   the setup code. The server only accepts the configured email, creates and
+   verifies the account, then atomically grants the first admin access.
+   Registration closes as soon as the first admin is added.
 5. Remove `SUPABASE_SECRET_KEY` and `PORTFOLIO_ADMIN_SETUP_CODE` from Vercel
    after registration and redeploy. The secret key is only needed to bootstrap
    the first account; normal sign-in and CMS publishing use Supabase Auth and
    row-level security.
 6. Sign in at `/admin` to edit the profile, create pages, and publish changes.
+   The portfolio admin allowlist is checked on the server and again in the
+   editor; Supabase row-level security remains the final write authorization.
    Saved changes are published immediately and appear on the public site.
 
 For a step-by-step production setup walkthrough, visit `/admin/setup`. It
 links to the Supabase and Vercel dashboards and lists the required environment
 variable names without asking you to disclose their values.
 
-Only the publishable/anon key is used in the browser. Never expose the
-Supabase secret/service-role key as a `NEXT_PUBLIC_` variable. Public visitors
-can read the portfolio, but writes are restricted by row-level security to
-IDs in `portfolio_admins`.
+The publishable/anon key is used in the browser. Never expose the Supabase
+secret/service-role key as a `NEXT_PUBLIC_` variable. Public visitors can read
+published portfolio content, but only IDs in `portfolio_admins` can enter the
+editor or write content under row-level security.
 
 ## Portfolio editor
 

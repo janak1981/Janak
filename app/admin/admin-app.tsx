@@ -32,15 +32,16 @@ import {
   type PortfolioEntry,
   type PortfolioPage,
 } from "@/lib/content";
-import { hasSupabaseConfig, supabase } from "@/lib/supabase";
+import { hasSupabaseConfig } from "@/lib/supabase";
+import { supabaseBrowser } from "@/lib/supabase-browser";
 
 type Section = "overview" | "pages" | "profile";
 const localPreviewStorageKey = "janak-portfolio-local-preview";
 
-export function AdminApp() {
-  const [authenticated, setAuthenticated] = useState(false);
+export function AdminApp({ initialAdminEmail = "" }: { initialAdminEmail?: string }) {
+  const [authenticated, setAuthenticated] = useState(Boolean(initialAdminEmail));
   const [previewMode, setPreviewMode] = useState(false);
-  const [email, setEmail] = useState("");
+  const [email, setEmail] = useState(initialAdminEmail);
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [setupCode, setSetupCode] = useState("");
@@ -57,6 +58,33 @@ export function AdminApp() {
   const [busy, setBusy] = useState(false);
   const [ready, setReady] = useState(!hasSupabaseConfig);
 
+  async function verifyAdminSession(userId: string, userEmail: string) {
+    if (!supabaseBrowser) return;
+    const { data, error } = await supabaseBrowser
+      .from("portfolio_admins")
+      .select("user_id")
+      .eq("user_id", userId)
+      .maybeSingle();
+
+    if (error) {
+      setAuthenticated(false);
+      setErrorMessage("Unable to verify administrator access. Confirm the Supabase schema is installed, then try again.");
+      setReady(true);
+      return;
+    }
+    if (!data) {
+      setAuthenticated(false);
+      setErrorMessage("This account is not authorized to manage the portfolio.");
+      setReady(true);
+      return;
+    }
+
+    setEmail(userEmail);
+    setAuthenticated(true);
+    setErrorMessage("");
+    setReady(true);
+  }
+
   useEffect(() => {
     function handleShortcut(event: KeyboardEvent) {
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
@@ -70,16 +98,31 @@ export function AdminApp() {
   }, []);
 
   useEffect(() => {
-    if (!supabase) return;
+    if (!supabaseBrowser) return;
     let active = true;
-    void supabase.auth.getSession().then(({ data, error }) => {
+    void supabaseBrowser.auth.getSession().then(({ data, error }) => {
       if (!active) return;
-      if (error) setErrorMessage(error.message);
-      setAuthenticated(Boolean(data.session));
-      setReady(true);
+      if (error) {
+        setErrorMessage("Unable to check your sign-in session. Please reload and try again.");
+        setReady(true);
+        return;
+      }
+      if (data.session) {
+        void verifyAdminSession(data.session.user.id, data.session.user.email ?? "");
+      } else {
+        setAuthenticated(false);
+        setReady(true);
+      }
     });
-    const { data } = supabase.auth.onAuthStateChange((_event, session) => {
-      setAuthenticated(Boolean(session));
+    const { data } = supabaseBrowser.auth.onAuthStateChange((_event, session) => {
+      if (!session) {
+        setAuthenticated(false);
+        setReady(true);
+        return;
+      }
+      window.setTimeout(() => {
+        if (active) void verifyAdminSession(session.user.id, session.user.email ?? "");
+      }, 0);
     });
     return () => {
       active = false;
@@ -88,7 +131,7 @@ export function AdminApp() {
   }, []);
 
   useEffect(() => {
-    if (!supabase || authenticated) return;
+    if (!supabaseBrowser || authenticated) return;
     let active = true;
     void fetch("/api/admin/register", { cache: "no-store" })
       .then(async (response) => {
@@ -108,9 +151,9 @@ export function AdminApp() {
   }, [authenticated]);
 
   useEffect(() => {
-    if (!authenticated || !supabase) return;
+    if (!authenticated || !supabaseBrowser) return;
     let active = true;
-    void supabase
+    void supabaseBrowser
       .from("portfolio_content")
       .select("data")
       .eq("id", "primary")
@@ -132,12 +175,13 @@ export function AdminApp() {
 
   async function signIn(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!supabase) return;
+    if (!supabaseBrowser) return;
     setBusy(true);
     setErrorMessage("");
     try {
-      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      const { data, error } = await supabaseBrowser.auth.signInWithPassword({ email, password });
       if (error) setErrorMessage(error.message);
+      else await verifyAdminSession(data.user.id, data.user.email ?? email);
     } catch (error) {
       console.error("Unable to reach the admin sign-in service:", error);
       setErrorMessage("Unable to reach the sign-in service. Please try again.");
@@ -146,14 +190,14 @@ export function AdminApp() {
   }
 
   async function sendPasswordReset() {
-    if (!supabase || !email) {
+    if (!supabaseBrowser || !email) {
       setErrorMessage("Enter your account email first.");
       return;
     }
     setBusy(true);
     setErrorMessage("");
     try {
-      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      const { error } = await supabaseBrowser.auth.resetPasswordForEmail(email, {
         redirectTo: `${window.location.origin}/admin`,
       });
       if (error) setErrorMessage(error.message);
@@ -186,12 +230,12 @@ export function AdminApp() {
         return;
       }
 
-      if (!supabase) {
+      if (!supabaseBrowser) {
         setErrorMessage("The administrator account was created, but sign-in is not configured.");
         setBusy(false);
         return;
       }
-      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      const { data, error } = await supabaseBrowser.auth.signInWithPassword({ email, password });
       setRegistrationAvailable(false);
       setRegistrationMode(false);
       setPassword("");
@@ -199,7 +243,7 @@ export function AdminApp() {
       setSetupCode("");
       if (error) {
         setErrorMessage(`Your account was created. Please sign in with your new password: ${error.message}`);
-      }
+      } else await verifyAdminSession(data.user.id, data.user.email ?? email);
     } catch {
       setErrorMessage("Unable to reach the registration service. Please try again.");
     }
@@ -207,13 +251,13 @@ export function AdminApp() {
   }
 
   async function signOut() {
-    if (!supabase) {
+    if (!supabaseBrowser) {
       setAuthenticated(false);
       setPreviewMode(false);
       setNotice("");
       return;
     }
-    const { error } = await supabase.auth.signOut();
+    const { error } = await supabaseBrowser.auth.signOut();
     if (error) setErrorMessage(error.message);
     else setNotice("You’re signed out.");
   }
@@ -229,7 +273,7 @@ export function AdminApp() {
       return;
     }
 
-    if (!supabase && previewMode) {
+    if (!supabaseBrowser && previewMode) {
       try {
         window.localStorage.setItem(localPreviewStorageKey, JSON.stringify(next));
         setContent(next);
@@ -240,10 +284,10 @@ export function AdminApp() {
       }
       return;
     }
-    if (!supabase) return;
+    if (!supabaseBrowser) return;
     setBusy(true);
     setErrorMessage("");
-    const { error } = await supabase
+    const { error } = await supabaseBrowser
       .from("portfolio_content")
       .upsert({ id: "primary", data: next }, { onConflict: "id" });
     if (error) {

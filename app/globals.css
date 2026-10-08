@@ -199,6 +199,10 @@ button { color: inherit; }
 .studio-setup-footer { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 16px 34px; border-top: 1px solid #eeece5; color: #87897f; font-size: 9px; }
 .studio-setup-footer a { display: inline-flex; align-items: center; gap: 5px; color: #4f7058; font-weight: 600; }
 .studio-setup-footer a:hover { color: var(--orange); }
+.studio-setup-access-message { display: grid; gap: 8px; margin: 18px 24px 0; padding: 13px 15px; border: 1px solid #ead6c8; background: #fbf2ec; color: #80513d; font-size: 10px; line-height: 1.6; }
+.studio-setup-access-message strong { font-weight: 600; }
+.studio-setup-access-message button { width: max-content; display: inline-flex; align-items: center; gap: 6px; padding: 7px 9px; border: 1px solid #e2caba; background: #fffaf6; color: #754a38; font-size: 9px; cursor: pointer; }
+.studio-setup-access-message button:disabled { opacity: .65; cursor: wait; }
 .admin-login { min-height: 100vh; display: grid; grid-template-columns: .78fr 1fr; background: #f5f4ee; }
 .login-story { position: relative; min-height: 100vh; display: flex; flex-direction: column; justify-content: space-between; padding: 38px clamp(35px, 6vw, 90px); overflow: hidden; background: linear-gradient(152deg, #28473f 0%, #19382f 100%); color: #f5f2e8; }
 .login-story::before, .login-story::after { position: absolute; top: 14%; right: -35%; width: min(78vw, 760px); aspect-ratio: 1; border: 1px solid #ffffff0c; border-radius: 50%; content: ""; pointer-events: none; }
@@ -523,6 +527,7 @@ button { color: inherit; }
   .studio-setup-step-number { width: 26px; height: 26px; font-size: 10px; }
   .studio-env-list { grid-template-columns: 1fr; }
   .studio-setup-footer { align-items: flex-start; flex-direction: column; padding-inline: 19px; }
+  .studio-setup-access-message { margin-inline: 14px; }
   .admin-layout { display: block; }
   .admin-sidebar { position: relative; width: 100%; height: auto; display: flex; flex-direction: row; align-items: center; gap: 7px; padding: 12px 14px; border-right: 0; border-bottom: 1px solid #e5e3da; }
   .admin-wordmark { padding: 0 3px 0 0; margin-right: auto; }

@@ -7,6 +7,7 @@ import {
   LockKeyhole,
   ShieldCheck,
 } from "lucide-react";
+import { SetupAccessMessage } from "./setup-access-message";
 
 export const metadata = {
   title: "Admin setup | Janak Studio",
@@ -16,11 +17,18 @@ export const metadata = {
 const environmentVariables = [
   "NEXT_PUBLIC_SUPABASE_URL",
   "NEXT_PUBLIC_SUPABASE_ANON_KEY",
+  "PORTFOLIO_ADMIN_EMAIL",
   "SUPABASE_SECRET_KEY",
   "PORTFOLIO_ADMIN_SETUP_CODE",
 ];
 
-export default function AdminSetupPage() {
+export default async function AdminSetupPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ access?: string }>;
+}) {
+  const { access } = await searchParams;
+
   return (
     <main className="setup-screen studio-setup-screen">
       <Link href="/admin" className="setup-back"><ArrowLeft size={15} /> Back to admin</Link>
@@ -31,6 +39,12 @@ export default function AdminSetupPage() {
         </header>
 
         <section className="studio-setup-card">
+          {access === "denied" && <SetupAccessMessage />}
+          {access === "unavailable" && (
+            <div className="studio-setup-access-message" role="alert">
+              Admin access could not be verified because the database is unavailable. Check the Supabase configuration and schema, then retry.
+            </div>
+          )}
           <div className="studio-setup-heading">
             <span className="setup-icon"><LockKeyhole size={20} /></span>
             <span className="admin-kicker">ONE-TIME CONNECTION</span>
@@ -59,7 +73,7 @@ export default function AdminSetupPage() {
               <span className="studio-setup-step-number">03</span>
               <div>
                 <h2>Add the server and browser settings to Vercel</h2>
-                <p>Open the Janak project’s environment settings and add these names for Production. Use the Supabase URL/key and a server-only Supabase secret key. Generate the one-time setup code locally with <code>openssl rand -hex 32</code>.</p>
+                <p>Open the Janak project’s environment settings and add these names for Production. Set the intended owner email, use the Supabase URL/key and a server-only Supabase secret key, and generate the one-time setup code locally with <code>openssl rand -hex 32</code>.</p>
                 <div className="studio-env-list" aria-label="Required environment variable names">
                   {environmentVariables.map((name) => <code key={name}>{name}</code>)}
                 </div>
@@ -71,7 +85,7 @@ export default function AdminSetupPage() {
               <span className="studio-setup-step-number">04</span>
               <div>
                 <h2>Redeploy, then create the owner account</h2>
-                <p>Redeploy after saving the variables. Return here and open the admin page; the first-admin option appears when the server setup is ready. Enter the owner email, a new unique password, and the one-time setup code directly in the secure form.</p>
+                <p>Redeploy after saving the variables. Return here and open the admin page; the first-admin option appears when the server setup is ready. Enter the same owner email configured in Vercel, a new unique password, and the one-time setup code directly in the secure form.</p>
                 <Link href="/admin" className="studio-setup-primary">Continue to secure admin setup <ArrowUpRight size={15} /></Link>
               </div>
             </li>
