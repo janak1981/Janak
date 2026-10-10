@@ -12,23 +12,37 @@ export const supabase =
     : null;
 
 export async function getPortfolioContent(): Promise<PortfolioContent> {
-  if (!supabase) return starterContent;
-
-  const { data, error } = await supabase
-    .from("portfolio_content")
-    .select("data")
-    .eq("id", "primary")
-    .maybeSingle();
-
-  if (error) {
-    throw new Error(`Unable to load portfolio content: ${error.message}`);
+  // If no Supabase config, return starter content
+  if (!supabase) {
+    console.log("No Supabase config found, using starter content");
+    return starterContent;
   }
 
-  if (data?.data && isPortfolioContent(data.data)) {
-    return data.data;
+  try {
+    const { data, error } = await supabase
+      .from("portfolio_content")
+      .select("data")
+      .eq("id", "primary")
+      .maybeSingle();
+
+    if (error) {
+      console.warn(`Supabase error: ${error.message}, using starter content`);
+      return starterContent;
+    }
+
+    if (data?.data && isPortfolioContent(data.data)) {
+      return data.data;
+    }
+    
+    if (data?.data) {
+      console.warn("Stored portfolio content has invalid format, using starter");
+      return starterContent;
+    }
+    
+    // No data found, use starter
+    return starterContent;
+  } catch (err) {
+    console.error("Error fetching portfolio content:", err);
+    return starterContent;
   }
-  if (data?.data) {
-    throw new Error("Stored portfolio content has an invalid format.");
-  }
-  return starterContent;
 }
