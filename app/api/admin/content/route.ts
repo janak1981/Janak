@@ -4,7 +4,8 @@ import { requireAdminAuth } from "@/lib/admin-auth";
 import { getPortfolioContent } from "@/lib/supabase";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
-const supabaseServiceKey = process.env.SUPABASE_SECRET_KEY || "";
+const supabaseServiceKey =
+  process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY || "";
 
 const supabase =
   supabaseUrl && supabaseServiceKey
@@ -59,6 +60,7 @@ async function handler(request: NextRequest) {
         );
 
       if (error) {
+        console.error("Supabase content update failed:", error.message);
         throw error;
       }
 
@@ -67,8 +69,12 @@ async function handler(request: NextRequest) {
         message: "Content updated successfully",
       });
     } catch (error) {
+      console.error(
+        "Failed to update portfolio content:",
+        error instanceof Error ? error.message : "Unknown error",
+      );
       return NextResponse.json(
-        { error: "Failed to update content" },
+        { error: "Failed to update content. Check the Supabase server key and portfolio_content table configuration." },
         { status: 500 }
       );
     }
