@@ -17,7 +17,8 @@ function getAdminClient() {
 async function isFirstAdminAvailable() {
   const client = getAdminClient();
   const setupCode = process.env.PORTFOLIO_ADMIN_SETUP_CODE;
-  if (!client || !setupCode || setupCode.length < 32) return false;
+  const allowedEmail = process.env.PORTFOLIO_ADMIN_EMAIL?.trim().toLowerCase();
+  if (!client || !setupCode || setupCode.length < 32 || !allowedEmail) return false;
 
   const { count, error } = await client
     .from("portfolio_admins")
@@ -69,9 +70,13 @@ export async function POST(request: Request) {
   }
 
   const expectedCode = process.env.PORTFOLIO_ADMIN_SETUP_CODE;
+  const allowedEmail = process.env.PORTFOLIO_ADMIN_EMAIL?.trim().toLowerCase();
   const client = getAdminClient();
-  if (!expectedCode || expectedCode.length < 32 || !client) {
+  if (!expectedCode || expectedCode.length < 32 || !allowedEmail || !client) {
     return Response.json({ error: "Admin registration has not been configured on the server." }, { status: 503 });
+  }
+  if (email.trim().toLowerCase() !== allowedEmail) {
+    return Response.json({ error: "Admin registration is restricted to the configured owner email." }, { status: 403 });
   }
 
   const submitted = Buffer.from(setupCode);
@@ -86,7 +91,7 @@ export async function POST(request: Request) {
     }
 
     const { data, error } = await client.auth.admin.createUser({
-      email,
+      email: email.trim().toLowerCase(),
       password,
       email_confirm: true,
     });
